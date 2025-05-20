@@ -1,7 +1,9 @@
+import Perfil from "@/components/layouts/Perfil";
+
 export default function Home() {
   return (
-    <>
-      <h1 className="font-display text-link">Nada ainda :D</h1>
-    </>
+    <div className="px-6 py-10 box-border w-full h-full">
+      <Perfil />
+    </div>
   );
 }
