@@ -1,9 +1,26 @@
+import { useState } from "react";
+import { GitHubProvider } from "@/contexts/GitHubContext";
 import Perfil from "@/components/layouts/Perfil";
+import Tabs from "@/components/layouts/Tabs";
+import Repositories from "@/components/layouts/Repositories";
+import Starred from "@/components/layouts/Starred";
+
+type TabType = "repositories" | "starred";
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<TabType>("repositories");
+  
+  // Username centralizado aqui
+  const username = "AlvaroRCardoso";
+
   return (
-    <div className="px-6 py-10 box-border w-full h-full">
-      <Perfil />
-    </div>
+    <GitHubProvider username={username}>
+      <div className="px-6 py-10 box-border w-full h-full">
+        <Perfil />
+        <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
+        {activeTab === "repositories" && <Repositories />}
+        {activeTab === "starred" && <Starred />}
+      </div>
+    </GitHubProvider>
   );
 }

@@ -1,6 +1,6 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
-type GitHubUserResponse = {
+interface GitHubUser {
   name: string;
   login: string;
   avatar_url: string;
@@ -12,79 +12,80 @@ type GitHubUserResponse = {
   followers: number;
   following: number;
   twitter_username: string | null;
-};
+  public_repos: number;
+}
+
+interface GitHubApiError {
+  message: string;
+  documentation_url?: string;
+}
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse<GitHubUser | { error: string; message?: string }>
 ) {
-  let { username } = req.query;
-  
-  if (!username || Array.isArray(username)) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { username } = req.query;
+
+  if (!username || typeof username !== 'string') {
     return res.status(400).json({ 
-      error: 'Nome de usuário inválido ou ausente' 
+      error: 'Username is required',
+      message: 'Por favor forneça um nome de usuário válido'
     });
   }
-  
-  if (username.startsWith('re_')) {
-    username = username.substring(3);
-  }
-  
+
   try {
-    console.log("API chamada para username:", username);
-    
-    const token = process.env.GITHUB_TOKEN;
-    
     const headers: HeadersInit = {
-      'Accept': 'application/vnd.github.v3+json'
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'GitHub-Profile-App'
     };
-    
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    } else {
-      console.log("Aviso: Nenhum token do GitHub encontrado nas variáveis de ambiente");
+
+    if (process.env.GITHUB_TOKEN) {
+      headers.Authorization = `token ${process.env.GITHUB_TOKEN}`;
     }
-    
-    const apiUrl = `https://api.github.com/users/${username}`;
-    console.log("Fazendo requisição para:", apiUrl);
-    
-    const response = await fetch(apiUrl, {
-      headers: {
-        ...headers,
-        'User-Agent': 'NextJS-App'
-      }
+
+    const response = await fetch(`https://api.github.com/users/${username}`, {
+      headers
     });
-    
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error(`Resposta de erro da API do GitHub (${response.status}):`, errorBody);
-      console.error(`URL completa utilizada: https://api.github.com/users/${username}`);
-      throw new Error(`Erro na API do GitHub: ${response.status} - ${errorBody}`);
+
+    if (response.status === 404) {
+      return res.status(404).json({
+        error: 'User not found',
+        message: `Usuário '${username}' não encontrado no GitHub`
+      });
     }
+
+    if (response.status === 403) {
+      const resetTime = response.headers.get('X-RateLimit-Reset');
+      return res.status(403).json({
+        error: 'Rate limit exceeded',
+        message: 'Limite de requisições excedido. Tente novamente mais tarde.'
+      });
+    }
+
+    if (!response.ok) {
+      const errorData: GitHubApiError = await response.json();
+      return res.status(response.status).json({
+        error: 'GitHub API error',
+        message: errorData.message || `Erro ${response.status} da API do GitHub`
+      });
+    }
+
+    const userData: GitHubUser = await response.json();
     
-    const data = await response.json();
+    console.log(`✅ Dados do usuário ${username} obtidos com sucesso`);
     
-    const filteredData: GitHubUserResponse = {
-      name: data.name,
-      login: data.login,
-      avatar_url: data.avatar_url,
-      bio: data.bio,
-      company: data.company,
-      location: data.location,
-      blog: data.blog,
-      html_url: data.html_url,
-      followers: data.followers,
-      following: data.following,
-      twitter_username: data.twitter_username
-    };
+    return res.status(200).json(userData);
+
+  } catch (error) {
+    console.error('❌ Erro ao buscar usuário do GitHub:', error);
     
-    return res.status(200).json(filteredData);
-  } catch (error: any) {
-    console.error('Erro ao buscar dados do GitHub:', error);
-    
-    return res.status(500).json({ 
-      error: 'Falha ao buscar dados do perfil do GitHub',
-      message: error.message 
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Erro interno do servidor. Tente novamente.'
     });
   }
 }

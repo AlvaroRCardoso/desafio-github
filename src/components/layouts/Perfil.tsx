@@ -1,57 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { GoChevronDown, GoLink, GoLocation, GoOrganization } from "react-icons/go";
 import { FaInstagram } from "react-icons/fa";
-
-// Interface para os dados que esperamos da API
-interface GitHubUser {
-  name: string;
-  login: string;
-  avatar_url: string;
-  bio: string;
-  company: string | null;
-  location: string | null;
-  blog: string | null;
-  html_url: string;
-  followers: number;
-  following: number;
-  twitter_username: string | null;
-}
+import { useGitHub } from "@/contexts/GitHubContext";
 
 export default function Perfil() {
   const [showAdditionalInfo, setShowAdditionalInfo] = useState(false);
-  const [userData, setUserData] = useState<GitHubUser | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  
-  // Nome de usuário do GitHub
-  const username = "AlvaroRCardoso";
-  // const username = "gabrielcordeiro-dev";
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        const response = await fetch(`/api/github/re_${username}`);
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `Erro ${response.status}`);
-        }
-        
-        const data = await response.json();
-        setUserData(data);
-      } catch (err: any) {
-        console.error("Erro ao buscar dados do perfil:", err);
-        setError(err.message || "Falha ao carregar dados do perfil");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [username]);
+  const { userData, loading, error } = useGitHub();
 
   const toggleAdditionalInfo = () => {
     setShowAdditionalInfo(!showAdditionalInfo);
